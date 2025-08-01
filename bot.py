@@ -3,6 +3,11 @@ from datetime import datetime
 
 app = Flask(__name__)
 
+@app.route("/", methods=["GET"])
+def home():
+    return "¡Nano bot está activo en Render! 🚀", 200
+
+
 # Guardamos estado del usuario (clave: número)
 usuarios = {}
 
