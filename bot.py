@@ -1,7 +1,35 @@
 from flask import Flask, request
 from datetime import datetime
+import smtplib
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
+
+#Guardamos estado del usuario (clave:numero)
+usuarios={}
+#-------CONFIGURACION EMAIL---------------------
+EMAIL_ORIGEN="tu_correo@gmail.com"
+EMAIL_DESTINO="luismogro65@gmail.com"
+EMAIL_PASSWORD="mrci migy qnbe iich"
+
+def enviar_por_correo(datos):
+    """Envia los datos por correo."""
+    mensaje="\n".join([f"{k}. {v}" for k,v in datos.items()])
+    msg=MIMEText(mensaje)
+    msg["Subject"]="Nueva consulta de Nano"
+    msg["From"]=EMAIL_ORIGEN
+    msg["To"]=EMAIL_DESTINO
+    
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(EMAIL_ORIGEN, EMAIL_PASSWORD)
+            server.send_message(msg)
+        print("📧 Email enviado correctamente.")
+    except Exception as e:
+        print(f"⚠️ Error enviando correo: {e}")
+
+    
+    
 
 @app.route("/", methods=["GET"])
 def home():
@@ -51,6 +79,22 @@ def whatsapp_webhook():
     elif estado == "esperando_descripcion":
         usuarios[numero]["descripcion"] = mensaje
         respuesta = "✅ ¡Gracias! Hemos recibido tu consulta. Te contactaremos a la brevedad."
+        
+        # Guardar en archivo .txt
+        with open("consultas.txt", "a", encoding="utf-8") as f:
+            f.write(f"{datetime.now()} - {numero}:\n")
+            for clave, valor in usuarios[numero].items():
+                f.write(f"{clave}: {valor}\n")
+            f.write("-" * 40 + "\n")
+
+        # Enviar por correo
+        enviar_por_correo(usuarios[numero])
+
+        print("🚨 NUEVA CONSULTA:")
+        print(usuarios[numero])
+
+        usuarios[numero]["estado"] = "finalizado"
+        
         print("🚨 NUEVA CONSULTA:")
         print(usuarios[numero])
         usuarios[numero]["estado"] = "finalizado"
