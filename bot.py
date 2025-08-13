@@ -1,3 +1,4 @@
+from xmlrpc.client import _datetime
 from flask import Flask, request
 from datetime import datetime
 import smtplib
@@ -28,9 +29,8 @@ def enviar_por_correo(datos):
     except Exception as e:
         print(f"⚠️ Error enviando correo: {e}")
 
+#Ruta para recibir mensajes de WhatsApp desde Twilio
     
-    
-
 @app.route("/", methods=["GET"])
 def home():
     return "¡Nano bot está activo en Render! 🚀", 200
@@ -78,15 +78,13 @@ def whatsapp_webhook():
 
     elif estado == "esperando_descripcion":
         usuarios[numero]["descripcion"] = mensaje
-        respuesta = "✅ ¡Gracias! Hemos recibido tu consulta. Te contactaremos a la brevedad."
+        usuarios[numero]["estado"]="finalizado"
         
         # Guardar en archivo .txt
-        with open("consultas.txt", "a", encoding="utf-8") as f:
-            f.write(f"{datetime.now()} - {numero}:\n")
-            for clave, valor in usuarios[numero].items():
-                f.write(f"{clave}: {valor}\n")
-            f.write("-" * 40 + "\n")
-
+        guardar_consulta_txt(usuarios[numero])
+        
+        respuesta = "✅ ¡Gracias! Hemos recibido tu consulta. Te contactaremos a la brevedad."
+        
         # Enviar por correo
         enviar_por_correo(usuarios[numero])
 
@@ -103,11 +101,31 @@ def whatsapp_webhook():
         respuesta = "¿Querés empezar otra vez? Escribí *Hola* para reiniciar."
         usuarios[numero]["estado"] = "inicio"
 
-    # Respondemos a Twilio
+    # Respuesta XML para Twilio
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Message>{respuesta}</Message>
 </Response>"""
 
+#Ruta para ver/descargar el archivo de consultas
+@app.route("/descargar_consultas",methods=["GET"])
+
+def descargar_consultas():
+    try:
+        with open("consultas.txt","r",encoding="utf-8") as f:
+            contenido=f.read()
+        return f"<h2>Consultas registradas</h2><pre>{contenido}</pre"
+    except FileNotFoundError:
+        return "no hay consultas registradas aún."
+    
+#Funcion para guardar en TXT
+def guardar_consulta_txt(datos):
+    fecha=_datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open("consultas.txt","a",encoding="utf-8") as f:
+        f.write(f"----Consulta recibida {fecha} ----\n")
+        for clave,valor in datos.items():
+            f.write(f"{clave}:{valor}\n")
+        f.write("\n")
+
 if __name__ == "__main__":
-   app.run(host='0.0.0.0')
+   app.run(host='0.0.0.0',port=5000)
