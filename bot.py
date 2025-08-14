@@ -31,7 +31,7 @@ def enviar_por_correo(datos):
         print(f"⚠️ Error enviando correo: {e}")
 #Funcion para guardar en TXT
 def guardar_consulta_txt(datos):
-    fecha=_datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    fecha=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open("consultas.txt","a",encoding="utf-8") as f:
         f.write(f"----Consulta recibida {fecha} ----\n")
         for clave,valor in datos.items():
