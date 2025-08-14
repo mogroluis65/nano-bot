@@ -1,6 +1,7 @@
 from xmlrpc.client import _datetime
 from flask import Flask, request
 from datetime import datetime
+import os
 import smtplib
 from email.mime.text import MIMEText
 
@@ -9,14 +10,14 @@ app = Flask(__name__)
 #Guardamos estado del usuario (clave:numero)
 usuarios={}
 #-------CONFIGURACION EMAIL---------------------
-EMAIL_ORIGEN="tu_correo@gmail.com"
+EMAIL_ORIGEN=os.environ.get("EMAIL_ORIGEN") #GMAIL ORIGEN
 EMAIL_DESTINO="luismogro65@gmail.com"
-EMAIL_PASSWORD="mrci migy qnbe iich"
+EMAIL_PASSWORD=os.environ.get("EMAIL_PASSWORD") #cONTRASEÑA DE APLICACION
 
 def enviar_por_correo(datos):
     """Envia los datos por correo."""
-    mensaje="\n".join([f"{k}. {v}" for k,v in datos.items()])
-    msg=MIMEText(mensaje)
+    cuerpo="\n".join([f"{k}. {v}" for k,v in datos.items()])
+    msg=MIMEText(cuerpo)
     msg["Subject"]="Nueva consulta de Nano"
     msg["From"]=EMAIL_ORIGEN
     msg["To"]=EMAIL_DESTINO
@@ -28,16 +29,25 @@ def enviar_por_correo(datos):
         print("📧 Email enviado correctamente.")
     except Exception as e:
         print(f"⚠️ Error enviando correo: {e}")
+#Funcion para guardar en TXT
+def guardar_consulta_txt(datos):
+    fecha=_datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open("consultas.txt","a",encoding="utf-8") as f:
+        f.write(f"----Consulta recibida {fecha} ----\n")
+        for clave,valor in datos.items():
+            f.write(f"{clave}:{valor}\n")
+        f.write("\n")
 
-#Ruta para recibir mensajes de WhatsApp desde Twilio
+        
+
+
+#Ruta raiz para comprobar estado
     
 @app.route("/", methods=["GET"])
 def home():
     return "¡Nano bot está activo en Render! 🚀", 200
 
-
-# Guardamos estado del usuario (clave: número)
-usuarios = {}
+#Webhook para whatsApp twilio
 
 @app.route("/webhook", methods=["POST"])
 def whatsapp_webhook():
@@ -80,22 +90,12 @@ def whatsapp_webhook():
         usuarios[numero]["descripcion"] = mensaje
         usuarios[numero]["estado"]="finalizado"
         
-        # Guardar en archivo .txt
+        # Guardar en archivo .txt y enviar por correo
         guardar_consulta_txt(usuarios[numero])
-        
-        respuesta = "✅ ¡Gracias! Hemos recibido tu consulta. Te contactaremos a la brevedad."
-        
         # Enviar por correo
         enviar_por_correo(usuarios[numero])
-
-        print("🚨 NUEVA CONSULTA:")
-        print(usuarios[numero])
-
-        usuarios[numero]["estado"] = "finalizado"
+        respuesta = "✅ ¡Gracias! Hemos recibido tu consulta. Te contactaremos a la brevedad."
         
-        print("🚨 NUEVA CONSULTA:")
-        print(usuarios[numero])
-        usuarios[numero]["estado"] = "finalizado"
 
     else:
         respuesta = "¿Querés empezar otra vez? Escribí *Hola* para reiniciar."
@@ -108,24 +108,17 @@ def whatsapp_webhook():
 </Response>"""
 
 #Ruta para ver/descargar el archivo de consultas
-@app.route("/descargar_consultas",methods=["GET"])
+@app.route("/descargar_consultas", methods=["GET"])
 
 def descargar_consultas():
     try:
         with open("consultas.txt","r",encoding="utf-8") as f:
             contenido=f.read()
-        return f"<h2>Consultas registradas</h2><pre>{contenido}</pre"
+        return f"<h2>Consultas registradas</h2><pre>{contenido}</pre>"
     except FileNotFoundError:
         return "no hay consultas registradas aún."
     
-#Funcion para guardar en TXT
-def guardar_consulta_txt(datos):
-    fecha=_datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with open("consultas.txt","a",encoding="utf-8") as f:
-        f.write(f"----Consulta recibida {fecha} ----\n")
-        for clave,valor in datos.items():
-            f.write(f"{clave}:{valor}\n")
-        f.write("\n")
 
 if __name__ == "__main__":
-   app.run(host='0.0.0.0',port=5000)
+    port=int(os.environ.get("PORT",5000))
+    app.run(host='0.0.0.0',port=port)
